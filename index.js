@@ -16,7 +16,7 @@ app.get('/', (req, res) => {
 })
 
 // MONGO DB CODE STARTS HERE
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.1o3onh9.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -37,6 +37,7 @@ async function run() {
         const classesCollection = client.db("MartialArtsInsights").collection('classes');
         const instructorsCollection = client.db("MartialArtsInsights").collection('instructors');
         const selectedClassesCollection = client.db("MartialArtsInsights").collection('selectedClasses');
+        const paymentsCollection = client.db("MartialArtsInsights").collection('payments');
 
         // get classes 
         app.get('/classes', async (req, res) => {
@@ -78,7 +79,7 @@ async function run() {
 
         // ADD PAYMENT INTENT
         app.post('/create-payment-intent', async (req, res) => {
-            const {price }= req.body;
+            const { price } = req.body;
             const amount = parseFloat(price * 100);
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: amount,
@@ -91,6 +92,20 @@ async function run() {
                 clientSecret: paymentIntent.client_secret
             })
         })
+
+        // Store payments data
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const insertResult = await paymentsCollection.insertOne(payment.paymentInfo);
+
+            const query = { _id: { $in: payment.paymentInfo.paidClassItems.map(id => new ObjectId(id)) } };
+            console.log(query);
+            const deleteResult = await selectedClassesCollection.deleteMany(query);
+            res.send({ insertResult, deleteResult });
+        })
+
+
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
