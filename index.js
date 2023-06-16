@@ -44,7 +44,7 @@ async function run() {
             const { sortField, sortOrder } = req.query;
             console.log(sortField, sortOrder);
             if (sortField && sortOrder) {
-                const query = await classesCollection.find().sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 });
+                const query = classesCollection.find().sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 });
                 const sortedData = await query.toArray();
                 res.send(sortedData)
             } else {
@@ -75,6 +75,13 @@ async function run() {
             res.send(result);
         })
 
+        app.delete('/selected-classes/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await selectedClassesCollection.deleteOne(query);
+            res.send(result);
+        })
+
 
 
         // ADD PAYMENT INTENT
@@ -96,12 +103,28 @@ async function run() {
         // Store payments data
         app.post('/payments', async (req, res) => {
             const payment = req.body;
+            console.log(payment.paymentInfo);
             const insertResult = await paymentsCollection.insertOne(payment.paymentInfo);
 
             const query = { _id: { $in: payment.paymentInfo.paidClassItems.map(id => new ObjectId(id)) } };
-            console.log(query);
-            const deleteResult = await selectedClassesCollection.deleteMany(query);
-            res.send({ insertResult, deleteResult });
+            const deleteResult = await selectedClassesCollection?.deleteMany(query);
+
+            // reduce available seats in class
+            // Update the availableSeats field using pipeline
+            const updateResult = await classesCollection?.updateMany(
+                { _id: { $in: payment.paymentInfo.classItems.map(id => new ObjectId(id)) } },
+                [{ $set: { availableSeats: { $subtract: ['$availableSeats', 1] } } }]
+            );
+
+            res.send({ insertResult, deleteResult, updateResult });
+        })
+
+        app.get('/payments', async (req, res) => {
+            const { sortField, sortOrder } = req.query;
+            const email = req.query.email;
+            const query = { email: email };
+            const result = await paymentsCollection.find(query).sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 }).toArray();
+            res.send(result);
         })
 
 
