@@ -62,6 +62,14 @@ async function run() {
             const result = await selectedClassesCollection.insertOne(classItem);
             res.send(result);
         })
+        // get stored classes data
+        app.get('/selected-classes', async(req, res) => {
+            const email = req.query.email;
+            console.log(email);
+            const query = {userEmail: email};
+            const result = await selectedClassesCollection.find(query).toArray();
+            res.send(result);
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
