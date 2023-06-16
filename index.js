@@ -32,7 +32,10 @@ async function run() {
 
         // collections
         const classesCollection = client.db("MartialArtsInsights").collection('classes');
-
+        const instructorsCollection = client.db("MartialArtsInsights").collection('instructors');
+        const selectedClassesCollection = client.db("MartialArtsInsights").collection('selectedClasses');
+       
+        // get classes 
         app.get('/classes', async (req, res) => {
             const { sortField, sortOrder } = req.query;
             console.log(sortField, sortOrder);
@@ -44,6 +47,20 @@ async function run() {
                 const result = await classesCollection.find().toArray();
                 res.send(result);
             }
+        })
+
+        // get instructors data
+        app.get('/instructors', async( req, res) => {
+            const result = await instructorsCollection.find().toArray();
+            res.send(result);
+        })
+
+        // store selected classes
+        app.post('/selected-classes', async(req, res) => {
+            const classItem = req.body;
+            console.log(classItem);
+            const result = await selectedClassesCollection.insertOne(classItem);
+            res.send(result);
         })
 
         // Send a ping to confirm a successful connection
