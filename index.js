@@ -28,20 +28,32 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         // collections
         const classesCollection = client.db("MartialArtsInsights").collection('classes');
 
-        app.get('/classes', async(req, res) => {
-            const result = await classesCollection.find().toArray();
-            res.send(result);
+        app.get('/classes', async (req, res) => {
+            const { sortField, sortOrder } = req.query;
+            console.log(sortField, sortOrder);
+            if (sortField && sortOrder) {
+                const query = await classesCollection.find().sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 });
+                const sortedData = await query.toArray();
+                res.send(sortedData)
+            } else {
+                const result = await classesCollection.find().toArray();
+                res.send(result);
+            }
         })
-       
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    finally {
         // Ensures that the client will close when you finish/error
     }
 }
