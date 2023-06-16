@@ -5,6 +5,9 @@ require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 5000;
 
+// STRIPE secret API key.
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 app.use(cors());
 app.use(express.json());
 
@@ -34,7 +37,7 @@ async function run() {
         const classesCollection = client.db("MartialArtsInsights").collection('classes');
         const instructorsCollection = client.db("MartialArtsInsights").collection('instructors');
         const selectedClassesCollection = client.db("MartialArtsInsights").collection('selectedClasses');
-       
+
         // get classes 
         app.get('/classes', async (req, res) => {
             const { sortField, sortOrder } = req.query;
@@ -50,25 +53,43 @@ async function run() {
         })
 
         // get instructors data
-        app.get('/instructors', async( req, res) => {
+        app.get('/instructors', async (req, res) => {
             const result = await instructorsCollection.find().toArray();
             res.send(result);
         })
 
         // store selected classes
-        app.post('/selected-classes', async(req, res) => {
+        app.post('/selected-classes', async (req, res) => {
             const classItem = req.body;
             console.log(classItem);
             const result = await selectedClassesCollection.insertOne(classItem);
             res.send(result);
         })
         // get stored classes data
-        app.get('/selected-classes', async(req, res) => {
+        app.get('/selected-classes', async (req, res) => {
             const email = req.query.email;
             console.log(email);
-            const query = {userEmail: email};
+            const query = { userEmail: email };
             const result = await selectedClassesCollection.find(query).toArray();
             res.send(result);
+        })
+
+
+
+        // ADD PAYMENT INTENT
+        app.post('/create-payment-intent', async (req, res) => {
+            const {price }= req.body;
+            const amount = parseFloat(price * 100);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: [
+                    "card"
+                ],
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
         })
 
         // Send a ping to confirm a successful connection
