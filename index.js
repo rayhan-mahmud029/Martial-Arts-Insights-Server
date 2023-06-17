@@ -37,6 +37,7 @@ async function run() {
         const classesCollection = client.db("MartialArtsInsights").collection('classes');
         const instructorsCollection = client.db("MartialArtsInsights").collection('instructors');
         const selectedClassesCollection = client.db("MartialArtsInsights").collection('selectedClasses');
+        const feedbacksCollection = client.db("MartialArtsInsights").collection('feedbacks');
         const paymentsCollection = client.db("MartialArtsInsights").collection('payments');
         const usersCollection = client.db("MartialArtsInsights").collection('users');
 
@@ -60,7 +61,7 @@ async function run() {
             res.send(result);
         })
 
-        // store selected classes
+
         app.post('/selected-classes', async (req, res) => {
             const classItem = req.body;
             // console.log(classItem);
@@ -128,7 +129,7 @@ async function run() {
             res.send(result);
         })
 
-        // store users
+
         app.post('/users', async (req, res) => {
             const user = req.body;
             const query = { email: user.email };
@@ -146,7 +147,23 @@ async function run() {
             res.send(result);
         })
 
-        // add class and store
+        // Instructor activities
+        // check instructor
+        app.get('/users/instructor/:email', async (req, res) => {
+            const email = req.params.email;
+
+            // if (req.decoded.email !== email) {
+            //     console.log(req.decoded.email, email);
+            //     return res.send({ admin: false });
+            // }
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            const result = { admin: user?.role === 'instructor' };
+            // console.log(result);
+            res.send(result);
+        })
+
+
         app.post('/classes', async (req, res) => {
             const { newItem } = req.body;
             const result = await classesCollection.insertOne(newItem);
@@ -156,14 +173,37 @@ async function run() {
         // get instructor class
         app.get('/classes/:email', async (req, res) => {
             const email = req.params.email;
-            console.log(email);
+            // console.log(email);
             const query = { instructorEmail: email };
             const result = await classesCollection.find(query).toArray();
             res.send(result);
         })
 
+        app.get('/feedbacks/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { classID: id };
+            const result = await feedbacksCollection.find(query).toArray();
+            res.send(result);
+        })
+
 
         // Admin Activities
+        // check is admin
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            // console.log(email, 'admin');
+
+            // if (req.decoded.email !== email) {
+            //     console.log(req.decoded.email, email);
+            //     return res.send({ admin: false });
+            // }
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            const result = { admin: user?.role === 'admin' };
+            // console.log(result);
+            res.send(result);
+        })
+
         // Update class status
         app.patch('/classes/:id', async (req, res) => {
             const id = req.params.id;
@@ -179,10 +219,10 @@ async function run() {
         })
 
         // update user role
-        app.patch('/users/:id', async( req, res) => {
+        app.patch('/users/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id : new ObjectId(id)};
-            const {role} = req.body;
+            const query = { _id: new ObjectId(id) };
+            const { role } = req.body;
             const updateDoc = {
                 $set: {
                     role: role
@@ -190,6 +230,13 @@ async function run() {
             }
             const result = await usersCollection.updateOne(query, updateDoc);
             res.send(result);
+        })
+
+        // admin feedback store
+        app.post('/feedbacks', async (req, res) => {
+            const { feedback } = req.body;
+            const result = await feedbacksCollection.insertOne(feedback);
+            res.send(result)
         })
 
 
