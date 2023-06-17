@@ -38,11 +38,12 @@ async function run() {
         const instructorsCollection = client.db("MartialArtsInsights").collection('instructors');
         const selectedClassesCollection = client.db("MartialArtsInsights").collection('selectedClasses');
         const paymentsCollection = client.db("MartialArtsInsights").collection('payments');
+        const usersCollection = client.db("MartialArtsInsights").collection('users');
 
         // get classes 
         app.get('/classes', async (req, res) => {
             const { sortField, sortOrder } = req.query;
-            console.log(sortField, sortOrder);
+            // console.log(sortField, sortOrder);
             if (sortField && sortOrder) {
                 const query = classesCollection.find().sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 });
                 const sortedData = await query.toArray();
@@ -62,14 +63,14 @@ async function run() {
         // store selected classes
         app.post('/selected-classes', async (req, res) => {
             const classItem = req.body;
-            console.log(classItem);
+            // console.log(classItem);
             const result = await selectedClassesCollection.insertOne(classItem);
             res.send(result);
         })
         // get stored classes data
         app.get('/selected-classes', async (req, res) => {
             const email = req.query.email;
-            console.log(email);
+            // console.log(email);
             const query = { userEmail: email };
             const result = await selectedClassesCollection.find(query).toArray();
             res.send(result);
@@ -103,7 +104,7 @@ async function run() {
         // Store payments data
         app.post('/payments', async (req, res) => {
             const payment = req.body;
-            console.log(payment.paymentInfo);
+            // console.log(payment.paymentInfo);
             const insertResult = await paymentsCollection.insertOne(payment.paymentInfo);
 
             const query = { _id: { $in: payment.paymentInfo.paidClassItems.map(id => new ObjectId(id)) } };
@@ -124,6 +125,70 @@ async function run() {
             const email = req.query.email;
             const query = { email: email };
             const result = await paymentsCollection.find(query).sort({ [sortField]: sortOrder === 'asc' ? 1 : -1 }).toArray();
+            res.send(result);
+        })
+
+        // store users
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            const query = { email: user.email };
+            const existingUser = await usersCollection.findOne(query);
+            if (existingUser) {
+                return res.send({ message: 'user already exists' })
+            }
+            const result = await usersCollection.insertOne(user);
+            res.send(result);
+        })
+
+        // get stored users
+        app.get('/users', async (req, res) => {
+            const result = await usersCollection.find().toArray();
+            res.send(result);
+        })
+
+        // add class and store
+        app.post('/classes', async (req, res) => {
+            const { newItem } = req.body;
+            const result = await classesCollection.insertOne(newItem);
+            res.send(result)
+        })
+
+        // get instructor class
+        app.get('/classes/:email', async (req, res) => {
+            const email = req.params.email;
+            console.log(email);
+            const query = { instructorEmail: email };
+            const result = await classesCollection.find(query).toArray();
+            res.send(result);
+        })
+
+
+        // Admin Activities
+        // Update class status
+        app.patch('/classes/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const { status } = req.body;
+            const updateDoc = {
+                $set: {
+                    status: status
+                }
+            }
+            const result = await classesCollection.updateOne(query, updateDoc);
+            res.send(result)
+        })
+
+        // update user role
+        app.patch('/users/:id', async( req, res) => {
+            const id = req.params.id;
+            const query = {_id : new ObjectId(id)};
+            const {role} = req.body;
+            const updateDoc = {
+                $set: {
+                    role: role
+                }
+            }
+            const result = await usersCollection.updateOne(query, updateDoc);
             res.send(result);
         })
 
