@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
+
+const jwt_secret_key = process.env.JWT_SECRET;
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -8,8 +11,34 @@ const port = process.env.PORT || 5000;
 // STRIPE secret API key.
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
+
+// middleware
 app.use(cors());
 app.use(express.json());
+
+const verifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+    console.log(authorization);
+    if(!authorization){
+        return res.status(401).send({error: true, message: 'unauthorized access'})
+    }
+
+    // get token
+    const token = authorization.split(' ')[1];
+    console.log(token);
+
+    jwt.verify(token, jwt_secret_key, (err, decoded) => {
+        if(err){
+            return res.status(401).send({error: true, message: 'unauthorized access'})
+        }
+        req.decoded = decoded;
+        next()
+    })
+}
+
+
+
+
 
 app.get('/', (req, res) => {
     res.send('martial arts insights server running')
@@ -41,6 +70,16 @@ async function run() {
         const paymentsCollection = client.db("MartialArtsInsights").collection('payments');
         const usersCollection = client.db("MartialArtsInsights").collection('users');
 
+
+        // jwt
+        app.post('/jwt', (req, res)=> {
+            const user = req.body;
+            const token = jwt.sign({
+                data: user,
+              }, jwt_secret_key, { expiresIn: 60 * 60 });
+            res.send({token})
+        })
+
         // get classes 
         app.get('/classes', async (req, res) => {
             const { sortField, sortOrder } = req.query;
@@ -69,8 +108,14 @@ async function run() {
             res.send(result);
         })
         // get stored classes data
-        app.get('/selected-classes', async (req, res) => {
+        app.get('/selected-classes', verifyJWT, async (req, res) => {
             const email = req.query.email;
+
+            // check authorized email
+            // if(email !== req.decoded.email){
+            //     return res.status(403).send({error: true, message: 'forbidden access'})
+            // }
+
             // console.log(email);
             const query = { userEmail: email };
             const result = await selectedClassesCollection.find(query).toArray();
@@ -103,7 +148,7 @@ async function run() {
         })
 
         // Store payments data
-        app.post('/payments', async (req, res) => {
+        app.post('/payments', verifyJWT, async (req, res) => {
             const payment = req.body;
             // console.log(payment.paymentInfo);
             const insertResult = await paymentsCollection.insertOne(payment.paymentInfo);
@@ -121,7 +166,7 @@ async function run() {
             res.send({ insertResult, deleteResult, updateResult });
         })
 
-        app.get('/payments', async (req, res) => {
+        app.get('/payments', verifyJWT, async (req, res) => {
             const { sortField, sortOrder } = req.query;
             const email = req.query.email;
             const query = { email: email };
@@ -163,15 +208,15 @@ async function run() {
             res.send(result);
         })
 
-
-        app.post('/classes', async (req, res) => {
+        // create a class by instructor
+        app.post('/classes', verifyJWT, async (req, res) => {
             const { newItem } = req.body;
             const result = await classesCollection.insertOne(newItem);
             res.send(result)
         })
 
         // get instructor class
-        app.get('/classes/:email', async (req, res) => {
+        app.get('/classes/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             // console.log(email);
             const query = { instructorEmail: email };
@@ -205,7 +250,7 @@ async function run() {
         })
 
         // Update class status
-        app.patch('/classes/:id', async (req, res) => {
+        app.patch('/classes/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const { status } = req.body;
@@ -219,7 +264,7 @@ async function run() {
         })
 
         // update user role
-        app.patch('/users/:id', async (req, res) => {
+        app.patch('/users/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const { role } = req.body;
